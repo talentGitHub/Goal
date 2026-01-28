@@ -35,26 +35,54 @@ This is an interactive goal-scoring game where:
 - .NET 10.0 SDK or later
 - Windows operating system (for running the application)
 
+### Quick Start (Windows)
+
+**Option 1: Using Batch Script (Easiest)**
+```cmd
+build-and-run.bat
+```
+
+**Option 2: Using PowerShell Script**
+```powershell
+.\build-and-run.ps1
+```
+
+**Option 3: Manual Build**
+```cmd
+build.bat
+```
+
 ### Build Instructions
 
 1. Clone the repository
 2. Navigate to the project directory
 3. Build the solution:
 ```bash
-dotnet build Goal.sln
+dotnet build
+```
+
+Or build for Release:
+```bash
+dotnet build --configuration Release
 ```
 
 ### Run Instructions
 
-Run the application:
+**After building, run the application:**
+
+Option 1 - Run from project directory:
 ```bash
 dotnet run --project GoalGame/GoalGame.csproj
 ```
 
-Or build and run the executable:
+Option 2 - Run the executable directly:
 ```bash
-cd GoalGame/bin/Debug/net10.0-windows
-./GoalGame.exe
+GoalGame\bin\Debug\net10.0-windows\GoalGame.exe
+```
+
+Or for Release build:
+```bash
+GoalGame\bin\Release\net10.0-windows\GoalGame.exe
 ```
 
 ## Project Structure
