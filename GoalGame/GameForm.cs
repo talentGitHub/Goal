@@ -16,6 +16,8 @@ namespace GoalGame
         private bool isBallMoving = false;
         private int score = 0;
         private int attempts = 0;
+        private string resultMessage = "";
+        private int messageDisplayFrames = 0;
         
         // Colors
         private readonly Color grassColor = Color.FromArgb(34, 139, 34);
@@ -30,6 +32,23 @@ namespace GoalGame
         private int goalkeeperSpeed = 8;
         private int goalkeeperDirection = 1;
         
+        // Random number generator for random shots
+        private Random random = new Random();
+        
+        // Graphics resources (reused to prevent memory leaks)
+        private SolidBrush grassBrush = null!;
+        private SolidBrush goalPostBrush = null!;
+        private SolidBrush goalkeeperBrush = null!;
+        private SolidBrush ballBrush = null!;
+        private SolidBrush playerBrush = null!;
+        private SolidBrush whiteBrush = null!;
+        private Pen blackPen = null!;
+        private Pen darkRedPen = null!;
+        private Pen darkBluePen = null!;
+        private Pen grayPen = null!;
+        private Font scoreFont = null!;
+        private Font instructionsFont = null!;
+        
         public GameForm()
         {
             // Setup form
@@ -37,6 +56,9 @@ namespace GoalGame
             this.Size = new Size(800, 600);
             this.DoubleBuffered = true;
             this.StartPosition = FormStartPosition.CenterScreen;
+            
+            // Initialize graphics resources
+            InitializeGraphicsResources();
             
             // Initialize game objects
             InitializeGame();
@@ -52,6 +74,23 @@ namespace GoalGame
             
             // Handle keyboard
             this.KeyDown += GameForm_KeyDown;
+        }
+        
+        private void InitializeGraphicsResources()
+        {
+            // Initialize all graphics resources once to prevent memory leaks
+            grassBrush = new SolidBrush(grassColor);
+            goalPostBrush = new SolidBrush(goalPostColor);
+            goalkeeperBrush = new SolidBrush(goalkeeperColor);
+            ballBrush = new SolidBrush(ballColor);
+            playerBrush = new SolidBrush(Color.Blue);
+            whiteBrush = new SolidBrush(Color.White);
+            blackPen = new Pen(Color.Black, 3);
+            darkRedPen = new Pen(Color.DarkRed, 2);
+            darkBluePen = new Pen(Color.DarkBlue, 2);
+            grayPen = new Pen(Color.Gray);
+            scoreFont = new Font("Arial", 16, FontStyle.Bold);
+            instructionsFont = new Font("Arial", 10);
         }
         
         private void InitializeGame()
@@ -70,6 +109,16 @@ namespace GoalGame
         
         private void GameTimer_Tick(object? sender, EventArgs e)
         {
+            // Decrease message display counter
+            if (messageDisplayFrames > 0)
+            {
+                messageDisplayFrames--;
+                if (messageDisplayFrames == 0)
+                {
+                    resultMessage = "";
+                }
+            }
+            
             // Move goalkeeper
             goalkeeper.X += goalkeeperSpeed * goalkeeperDirection;
             
@@ -100,21 +149,24 @@ namespace GoalGame
                     if (ball.IntersectsWith(goalkeeper))
                     {
                         // Blocked!
-                        MessageBox.Show($"Blocked by goalkeeper! Score: {score}/{attempts}", "Blocked!");
+                        resultMessage = $"BLOCKED! Score: {score}/{attempts}";
+                        messageDisplayFrames = 100; // Display for ~2 seconds
                         ResetBall();
                     }
                     else
                     {
                         // Goal!
                         score++;
-                        MessageBox.Show($"GOAL! Score: {score}/{attempts}", "Goal!");
+                        resultMessage = $"GOAL! Score: {score}/{attempts}";
+                        messageDisplayFrames = 100; // Display for ~2 seconds
                         ResetBall();
                     }
                 }
                 else if (ball.Y < 0 || ball.X < 0 || ball.X > this.ClientSize.Width)
                 {
                     // Missed
-                    MessageBox.Show($"Missed! Score: {score}/{attempts}", "Missed!");
+                    resultMessage = $"MISSED! Score: {score}/{attempts}";
+                    messageDisplayFrames = 100; // Display for ~2 seconds
                     ResetBall();
                 }
             }
@@ -135,9 +187,8 @@ namespace GoalGame
             if (e.KeyCode == Keys.Space && !isBallMoving)
             {
                 // Shoot at a random location in the goal
-                Random rand = new Random();
-                int targetX = goalPost.X + rand.Next(goalPost.Width);
-                int targetY = goalPost.Y + rand.Next(goalPost.Height);
+                int targetX = goalPost.X + random.Next(goalPost.Width);
+                int targetY = goalPost.Y + random.Next(goalPost.Height);
                 ShootBall(new Point(targetX, targetY));
             }
             else if (e.KeyCode == Keys.R)
@@ -145,19 +196,27 @@ namespace GoalGame
                 // Reset game
                 score = 0;
                 attempts = 0;
+                resultMessage = "";
+                messageDisplayFrames = 0;
                 ResetBall();
             }
         }
         
         private void ShootBall(Point target)
         {
-            attempts++;
-            isBallMoving = true;
-            
             // Calculate velocity
             int dx = target.X - ball.X;
             int dy = target.Y - ball.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
+            
+            // Check for division by zero (user clicked on ball)
+            if (distance < 1.0)
+            {
+                return; // Don't shoot if target is too close to ball
+            }
+            
+            attempts++;
+            isBallMoving = true;
             
             // Normalize and scale
             ballVelocity = new Point(
@@ -180,51 +239,83 @@ namespace GoalGame
             Graphics g = e.Graphics;
             
             // Draw grass field
-            g.FillRectangle(new SolidBrush(grassColor), 0, 0, this.ClientSize.Width, this.ClientSize.Height);
+            g.FillRectangle(grassBrush, 0, 0, this.ClientSize.Width, this.ClientSize.Height);
             
             // Draw goal post
-            g.FillRectangle(new SolidBrush(goalPostColor), goalPost);
-            g.DrawRectangle(new Pen(Color.Black, 3), goalPost);
+            g.FillRectangle(goalPostBrush, goalPost);
+            g.DrawRectangle(blackPen, goalPost);
             
             // Draw goal net pattern
             for (int i = goalPost.X; i < goalPost.X + goalPost.Width; i += 20)
             {
-                g.DrawLine(new Pen(Color.Gray), i, goalPost.Y, i, goalPost.Y + goalPost.Height);
+                g.DrawLine(grayPen, i, goalPost.Y, i, goalPost.Y + goalPost.Height);
             }
             for (int i = goalPost.Y; i < goalPost.Y + goalPost.Height; i += 20)
             {
-                g.DrawLine(new Pen(Color.Gray), goalPost.X, i, goalPost.X + goalPost.Width, i);
+                g.DrawLine(grayPen, goalPost.X, i, goalPost.X + goalPost.Width, i);
             }
             
             // Draw goalkeeper
-            g.FillRectangle(new SolidBrush(goalkeeperColor), goalkeeper);
-            g.DrawRectangle(new Pen(Color.DarkRed, 2), goalkeeper);
+            g.FillRectangle(goalkeeperBrush, goalkeeper);
+            g.DrawRectangle(darkRedPen, goalkeeper);
             
             // Draw ball
-            g.FillEllipse(new SolidBrush(ballColor), ball);
+            g.FillEllipse(ballBrush, ball);
             g.DrawEllipse(new Pen(Color.Black, 2), ball);
             
             // Draw player position (bottom center)
             int playerX = this.ClientSize.Width / 2 - 20;
             int playerY = this.ClientSize.Height - 80;
-            g.FillRectangle(new SolidBrush(Color.Blue), playerX, playerY, 40, 60);
-            g.DrawRectangle(new Pen(Color.DarkBlue, 2), playerX, playerY, 40, 60);
+            g.FillRectangle(playerBrush, playerX, playerY, 40, 60);
+            g.DrawRectangle(darkBluePen, playerX, playerY, 40, 60);
             
             // Draw score
             string scoreText = $"Score: {score}/{attempts}";
-            Font font = new Font("Arial", 16, FontStyle.Bold);
-            g.DrawString(scoreText, font, Brushes.White, 10, 10);
+            g.DrawString(scoreText, scoreFont, whiteBrush, 10, 10);
+            
+            // Draw result message if active
+            if (!string.IsNullOrEmpty(resultMessage))
+            {
+                SizeF messageSize = g.MeasureString(resultMessage, scoreFont);
+                float messageX = (this.ClientSize.Width - messageSize.Width) / 2;
+                float messageY = this.ClientSize.Height / 2 - 50;
+                
+                // Draw semi-transparent background for message
+                using (SolidBrush bgBrush = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
+                {
+                    g.FillRectangle(bgBrush, messageX - 10, messageY - 10, messageSize.Width + 20, messageSize.Height + 20);
+                }
+                
+                // Draw message text
+                using (SolidBrush textBrush = new SolidBrush(Color.Yellow))
+                {
+                    g.DrawString(resultMessage, scoreFont, textBrush, messageX, messageY);
+                }
+            }
             
             // Draw instructions
             string instructions = "Click anywhere in goal to shoot | SPACE for random shot | R to reset";
-            Font smallFont = new Font("Arial", 10);
-            g.DrawString(instructions, smallFont, Brushes.White, 10, this.ClientSize.Height - 30);
+            g.DrawString(instructions, instructionsFont, whiteBrush, 10, this.ClientSize.Height - 30);
         }
         
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
             gameTimer?.Stop();
+            
+            // Dispose all graphics resources
+            grassBrush?.Dispose();
+            goalPostBrush?.Dispose();
+            goalkeeperBrush?.Dispose();
+            ballBrush?.Dispose();
+            playerBrush?.Dispose();
+            whiteBrush?.Dispose();
+            blackPen?.Dispose();
+            darkRedPen?.Dispose();
+            darkBluePen?.Dispose();
+            grayPen?.Dispose();
+            scoreFont?.Dispose();
+            instructionsFont?.Dispose();
         }
     }
 }
